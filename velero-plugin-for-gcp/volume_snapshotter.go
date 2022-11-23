@@ -66,6 +66,7 @@ func (b *VolumeSnapshotter) Init(config map[string]string) error {
 	/* Works with both credential files and the default compute engine service account */
 	creds, err := google.FindDefaultCredentials(oauth2.NoContext, compute.ComputeScope)
 	if err != nil {
+		b.log.Debug("Line 69")
 		return errors.WithStack(err)
 	}
 	b.snapshotLocation = config[snapshotLocationKey]
@@ -85,6 +86,7 @@ func (b *VolumeSnapshotter) Init(config map[string]string) error {
 
 	gce, err := compute.New(client)
 	if err != nil {
+		b.log.Debug("Line 89")
 		return errors.WithStack(err)
 	}
 
@@ -104,15 +106,18 @@ func isMultiZone(volumeAZ string) bool {
 // parseRegion parses a failure-domain tag with multiple zones
 // and returns a single region. Zones are sperated by double underscores (__).
 // For example
-//     input: us-central1-a__us-central1-b
-//     return: us-central1
+//
+//	input: us-central1-a__us-central1-b
+//	return: us-central1
+//
 // When a custom storage class spans multiple geographical zones,
 // such as us-central1 and us-west1 only the zone matching the cluster is used
 // in the failure-domain tag.
 // For example
-//     Cluster nodes in us-central1-c, us-central1-f
-//     Storage class zones us-central1-a, us-central1-f, us-east1-a, us-east1-d
-//     The failure-domain tag would be: us-central1-a__us-central1-f
+//
+//	Cluster nodes in us-central1-c, us-central1-f
+//	Storage class zones us-central1-a, us-central1-f, us-east1-a, us-east1-d
+//	The failure-domain tag would be: us-central1-a__us-central1-f
 func parseRegion(volumeAZ string) (string, error) {
 	zones := strings.Split(volumeAZ, zoneSeparator)
 	zone := zones[0]
@@ -130,6 +135,7 @@ func (b *VolumeSnapshotter) getZoneURLs(volumeAZ string) ([]string, error) {
 	for _, z := range zones {
 		zone, err := b.gce.Zones.Get(b.volumeProject, z).Do()
 		if err != nil {
+			b.log.Debug("Line 138")
 			return nil, errors.WithStack(err)
 		}
 
@@ -143,6 +149,7 @@ func (b *VolumeSnapshotter) CreateVolumeFromSnapshot(snapshotID, volumeType, vol
 	// get the snapshot so we can apply its tags to the volume
 	res, err := b.gce.Snapshots.Get(b.snapshotProject, snapshotID).Do()
 	if err != nil {
+		b.log.Debug("Line 152")
 		return "", errors.WithStack(err)
 	}
 
@@ -153,6 +160,7 @@ func (b *VolumeSnapshotter) CreateVolumeFromSnapshot(snapshotID, volumeType, vol
 	// plus Velero-specific tags) to set the new disk's description.
 	uid, err := uuid.NewV4()
 	if err != nil {
+		b.log.Debug("Line 163")
 		return "", errors.WithStack(err)
 	}
 	disk := &compute.Disk{
@@ -165,22 +173,26 @@ func (b *VolumeSnapshotter) CreateVolumeFromSnapshot(snapshotID, volumeType, vol
 	if isMultiZone(volumeAZ) {
 		volumeRegion, err := parseRegion(volumeAZ)
 		if err != nil {
+			b.log.Debug("Line 176")
 			return "", err
 		}
 
 		// URLs for zones that the volume is replicated to within GCP
 		zoneURLs, err := b.getZoneURLs(volumeAZ)
 		if err != nil {
+			b.log.Debug("Line 183")
 			return "", err
 		}
 
 		disk.ReplicaZones = zoneURLs
 
 		if _, err = b.gce.RegionDisks.Insert(b.volumeProject, volumeRegion, disk).Do(); err != nil {
+			b.log.Debug("Line 190")
 			return "", errors.WithStack(err)
 		}
 	} else {
 		if _, err = b.gce.Disks.Insert(b.volumeProject, volumeAZ, disk).Do(); err != nil {
+			b.log.Debug("Line 195")
 			return "", errors.WithStack(err)
 		}
 	}
@@ -197,15 +209,18 @@ func (b *VolumeSnapshotter) GetVolumeInfo(volumeID, volumeAZ string) (string, *i
 	if isMultiZone(volumeAZ) {
 		volumeRegion, err := parseRegion(volumeAZ)
 		if err != nil {
+			b.log.Debug("Line 212")
 			return "", nil, errors.WithStack(err)
 		}
 		res, err = b.gce.RegionDisks.Get(b.volumeProject, volumeRegion, volumeID).Do()
 		if err != nil {
+			b.log.Debug("Line 217")
 			return "", nil, errors.WithStack(err)
 		}
 	} else {
 		res, err = b.gce.Disks.Get(b.volumeProject, volumeAZ, volumeID).Do()
 		if err != nil {
+			b.log.Debug("Line 223")
 			return "", nil, errors.WithStack(err)
 		}
 	}
@@ -231,6 +246,7 @@ func (b *VolumeSnapshotter) CreateSnapshot(volumeID, volumeAZ string, tags map[s
 	if isMultiZone(volumeAZ) {
 		volumeRegion, err := parseRegion(volumeAZ)
 		if err != nil {
+			b.log.Debug("Line 249")
 			return "", errors.WithStack(err)
 		}
 		return b.createRegionSnapshot(snapshotName, volumeID, volumeRegion, tags)
@@ -242,6 +258,7 @@ func (b *VolumeSnapshotter) CreateSnapshot(volumeID, volumeAZ string, tags map[s
 func (b *VolumeSnapshotter) createSnapshot(snapshotName, volumeID, volumeAZ string, tags map[string]string) (string, error) {
 	disk, err := b.gce.Disks.Get(b.volumeProject, volumeAZ, volumeID).Do()
 	if err != nil {
+		b.log.Debug("Line 261")
 		return "", errors.WithStack(err)
 	}
 
@@ -256,6 +273,7 @@ func (b *VolumeSnapshotter) createSnapshot(snapshotName, volumeID, volumeAZ stri
 
 	_, err = b.gce.Disks.CreateSnapshot(b.snapshotProject, volumeAZ, volumeID, &gceSnap).Do()
 	if err != nil {
+		b.log.Debug("Line 276")
 		return "", errors.WithStack(err)
 	}
 
@@ -265,6 +283,7 @@ func (b *VolumeSnapshotter) createSnapshot(snapshotName, volumeID, volumeAZ stri
 func (b *VolumeSnapshotter) createRegionSnapshot(snapshotName, volumeID, volumeRegion string, tags map[string]string) (string, error) {
 	disk, err := b.gce.RegionDisks.Get(b.volumeProject, volumeRegion, volumeID).Do()
 	if err != nil {
+		b.log.Debug("Line 271")
 		return "", errors.WithStack(err)
 	}
 
@@ -274,11 +293,13 @@ func (b *VolumeSnapshotter) createRegionSnapshot(snapshotName, volumeID, volumeR
 	}
 
 	if b.snapshotLocation != "" {
+		b.log.Debug("Line 281")
 		gceSnap.StorageLocations = []string{b.snapshotLocation}
 	}
 
 	_, err = b.gce.RegionDisks.CreateSnapshot(b.snapshotProject, volumeRegion, volumeID, &gceSnap).Do()
 	if err != nil {
+		b.log.Debug("Line 287")
 		return "", errors.WithStack(err)
 	}
 
@@ -316,6 +337,7 @@ func getSnapshotTags(veleroTags map[string]string, diskDescription string, log l
 
 	tagsJSON, err := json.Marshal(snapshotTags)
 	if err != nil {
+		log.Debug("Line 322")
 		log.WithError(err).Error("unable to encode snapshot's tags to JSON, so not tagging snapshot")
 		return ""
 	}
@@ -333,6 +355,13 @@ func (b *VolumeSnapshotter) DeleteSnapshot(snapshotID string) error {
 		return nil
 	}
 	if err != nil {
+		gcpErr, ok := err.(*googleapi.Error)
+		if ok {
+			b.log.Debug("Line 341")
+			b.log.Error(gcpErr.Code)
+			b.log.Error(gcpErr.Message)
+			b.log.Error(gcpErr.Body)
+		}
 		return errors.WithStack(err)
 	}
 
@@ -361,6 +390,7 @@ func (b *VolumeSnapshotter) GetVolumeID(unstructuredPV runtime.Unstructured) (st
 
 	if pv.Spec.GCEPersistentDisk != nil {
 		if pv.Spec.GCEPersistentDisk.PDName == "" {
+			b.log.Debugf("Line 373")
 			return "", errors.New("spec.gcePersistentDisk.pdName not found")
 		}
 		return pv.Spec.GCEPersistentDisk.PDName, nil
@@ -396,6 +426,7 @@ func (b *VolumeSnapshotter) SetVolumeID(unstructuredPV runtime.Unstructured, vol
 	}
 	res, err := runtime.DefaultUnstructuredConverter.ToUnstructured(pv)
 	if err != nil {
+		b.log.Debug("Line 408")
 		return nil, errors.WithStack(err)
 	}
 

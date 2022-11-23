@@ -78,6 +78,7 @@ func newObjectStore(logger logrus.FieldLogger) *ObjectStore {
 
 func (o *ObjectStore) Init(config map[string]string) error {
 	if err := veleroplugin.ValidateObjectStoreConfigKeys(config, kmsKeyNameConfigKey, serviceAccountConfig, credentialsFileConfigKey); err != nil {
+		o.log.Debug("object_store: Line 81")
 		return err
 	}
 	// Find default token source to extract the GoogleAccessID
@@ -95,6 +96,7 @@ func (o *ObjectStore) Init(config map[string]string) error {
 	if credentialsFile, ok := config[credentialsFileConfigKey]; ok {
 		b, err := ioutil.ReadFile(credentialsFile)
 		if err != nil {
+			o.log.Debug("object_store: Line 99")
 			return errors.Wrapf(err, "error reading provided credentials file %v", credentialsFile)
 		}
 
@@ -109,6 +111,7 @@ func (o *ObjectStore) Init(config map[string]string) error {
 	}
 
 	if err != nil {
+		o.log.Debug("object_store: Line 114")
 		return errors.WithStack(err)
 	}
 
@@ -121,11 +124,13 @@ func (o *ObjectStore) Init(config map[string]string) error {
 	}
 
 	if err != nil {
+		o.log.Debug("object_store: Line 127")
 		return errors.WithStack(err)
 	}
 
 	client, err := storage.NewClient(ctx, clientOptions...)
 	if err != nil {
+		o.log.Debug("object_store: Line 133")
 		return errors.WithStack(err)
 	}
 	o.client = client
@@ -140,6 +145,7 @@ func (o *ObjectStore) Init(config map[string]string) error {
 func (o *ObjectStore) initFromKeyFile(creds *google.Credentials) error {
 	jwtConfig, err := google.JWTConfigFromJSON(creds.JSON)
 	if err != nil {
+		o.log.Debug("object_store: Line 148")
 		return errors.Wrap(err, "error parsing credentials file; should be JSON")
 	}
 	if jwtConfig.Email == "" {
@@ -195,6 +201,7 @@ func (o *ObjectStore) ObjectExists(bucket, key string) (bool, error) {
 func (o *ObjectStore) GetObject(bucket, key string) (io.ReadCloser, error) {
 	r, err := o.client.Bucket(bucket).Object(key).NewReader(context.Background())
 	if err != nil {
+		o.log.Debug("object_store: Line 204")
 		return nil, errors.WithStack(err)
 	}
 
@@ -213,6 +220,7 @@ func (o *ObjectStore) ListCommonPrefixes(bucket, prefix, delimiter string) ([]st
 	for {
 		obj, err := iter.Next()
 		if err != nil && err != iterator.Done {
+			o.log.Debug("object_store: Line 223")
 			return nil, errors.WithStack(err)
 		}
 		if err == iterator.Done {
@@ -242,6 +250,7 @@ func (o *ObjectStore) ListObjects(bucket, prefix string) ([]string, error) {
 			return res, nil
 		}
 		if err != nil {
+			o.log.Debug("object_store: Line 253")
 			return nil, errors.WithStack(err)
 		}
 
@@ -264,23 +273,29 @@ func (o *ObjectStore) SignBytes(bytes []byte) ([]byte, error) {
 	}).Context(context.Background()).Do()
 
 	if err != nil {
+		o.log.Debug("object_store: Line 276")
 		return nil, err
 	}
 	return base64.StdEncoding.DecodeString(resp.SignedBlob)
 }
 
 func (o *ObjectStore) CreateSignedURL(bucket, key string, ttl time.Duration) (string, error) {
+	o.log.Debug("object_store: Inside CreateSignedURL")
 	options := storage.SignedURLOptions{
 		GoogleAccessID: o.googleAccessID,
 		Method:         "GET",
 		Expires:        time.Now().Add(ttl),
 	}
 
+	o.log.Debug("object_store: still inside CreateSignedURL")
+
 	if o.privateKey == nil {
 		options.SignBytes = o.SignBytes
 	} else {
 		options.PrivateKey = o.privateKey
 	}
+
+	o.log.Debug("object_store: and still inside CreateSignedURL")
 
 	return storage.SignedURL(bucket, key, &options)
 }
