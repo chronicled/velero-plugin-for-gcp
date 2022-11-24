@@ -24,7 +24,7 @@ import (
 )
 
 func main() {
-	fmt.Printf("Inside main")
+	fmt.Print("Inside main")
 	veleroplugin.NewServer().
 		BindFlags(pflag.CommandLine).
 		RegisterObjectStore("velero.io/gcp", newGCPObjectStore).
