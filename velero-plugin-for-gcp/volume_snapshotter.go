@@ -66,7 +66,7 @@ func (b *VolumeSnapshotter) Init(config map[string]string) error {
 	/* Works with both credential files and the default compute engine service account */
 	creds, err := google.FindDefaultCredentials(oauth2.NoContext, compute.ComputeScope)
 	if err != nil {
-		b.log.Debug("Line 69")
+		fmt.Print("Line 69")
 		return errors.WithStack(err)
 	}
 	b.snapshotLocation = config[snapshotLocationKey]
@@ -86,7 +86,7 @@ func (b *VolumeSnapshotter) Init(config map[string]string) error {
 
 	gce, err := compute.New(client)
 	if err != nil {
-		b.log.Debug("Line 89")
+		fmt.Print("Line 89")
 		return errors.WithStack(err)
 	}
 
@@ -135,7 +135,7 @@ func (b *VolumeSnapshotter) getZoneURLs(volumeAZ string) ([]string, error) {
 	for _, z := range zones {
 		zone, err := b.gce.Zones.Get(b.volumeProject, z).Do()
 		if err != nil {
-			b.log.Debug("Line 138")
+			fmt.Print("Line 138")
 			return nil, errors.WithStack(err)
 		}
 
@@ -149,7 +149,7 @@ func (b *VolumeSnapshotter) CreateVolumeFromSnapshot(snapshotID, volumeType, vol
 	// get the snapshot so we can apply its tags to the volume
 	res, err := b.gce.Snapshots.Get(b.snapshotProject, snapshotID).Do()
 	if err != nil {
-		b.log.Debug("Line 152")
+		fmt.Print("Line 152")
 		return "", errors.WithStack(err)
 	}
 
@@ -160,7 +160,7 @@ func (b *VolumeSnapshotter) CreateVolumeFromSnapshot(snapshotID, volumeType, vol
 	// plus Velero-specific tags) to set the new disk's description.
 	uid, err := uuid.NewV4()
 	if err != nil {
-		b.log.Debug("Line 163")
+		fmt.Print("Line 163")
 		return "", errors.WithStack(err)
 	}
 	disk := &compute.Disk{
@@ -173,26 +173,26 @@ func (b *VolumeSnapshotter) CreateVolumeFromSnapshot(snapshotID, volumeType, vol
 	if isMultiZone(volumeAZ) {
 		volumeRegion, err := parseRegion(volumeAZ)
 		if err != nil {
-			b.log.Debug("Line 176")
+			fmt.Print("Line 176")
 			return "", err
 		}
 
 		// URLs for zones that the volume is replicated to within GCP
 		zoneURLs, err := b.getZoneURLs(volumeAZ)
 		if err != nil {
-			b.log.Debug("Line 183")
+			fmt.Print("Line 183")
 			return "", err
 		}
 
 		disk.ReplicaZones = zoneURLs
 
 		if _, err = b.gce.RegionDisks.Insert(b.volumeProject, volumeRegion, disk).Do(); err != nil {
-			b.log.Debug("Line 190")
+			fmt.Print("Line 190")
 			return "", errors.WithStack(err)
 		}
 	} else {
 		if _, err = b.gce.Disks.Insert(b.volumeProject, volumeAZ, disk).Do(); err != nil {
-			b.log.Debug("Line 195")
+			fmt.Print("Line 195")
 			return "", errors.WithStack(err)
 		}
 	}
@@ -209,18 +209,18 @@ func (b *VolumeSnapshotter) GetVolumeInfo(volumeID, volumeAZ string) (string, *i
 	if isMultiZone(volumeAZ) {
 		volumeRegion, err := parseRegion(volumeAZ)
 		if err != nil {
-			b.log.Debug("Line 212")
+			fmt.Print("Line 212")
 			return "", nil, errors.WithStack(err)
 		}
 		res, err = b.gce.RegionDisks.Get(b.volumeProject, volumeRegion, volumeID).Do()
 		if err != nil {
-			b.log.Debug("Line 217")
+			fmt.Print("Line 217")
 			return "", nil, errors.WithStack(err)
 		}
 	} else {
 		res, err = b.gce.Disks.Get(b.volumeProject, volumeAZ, volumeID).Do()
 		if err != nil {
-			b.log.Debug("Line 223")
+			fmt.Print("Line 223")
 			return "", nil, errors.WithStack(err)
 		}
 	}
@@ -246,7 +246,7 @@ func (b *VolumeSnapshotter) CreateSnapshot(volumeID, volumeAZ string, tags map[s
 	if isMultiZone(volumeAZ) {
 		volumeRegion, err := parseRegion(volumeAZ)
 		if err != nil {
-			b.log.Debug("Line 249")
+			fmt.Print("Line 249")
 			return "", errors.WithStack(err)
 		}
 		return b.createRegionSnapshot(snapshotName, volumeID, volumeRegion, tags)
@@ -258,7 +258,7 @@ func (b *VolumeSnapshotter) CreateSnapshot(volumeID, volumeAZ string, tags map[s
 func (b *VolumeSnapshotter) createSnapshot(snapshotName, volumeID, volumeAZ string, tags map[string]string) (string, error) {
 	disk, err := b.gce.Disks.Get(b.volumeProject, volumeAZ, volumeID).Do()
 	if err != nil {
-		b.log.Debug("Line 261")
+		fmt.Print("Line 261")
 		return "", errors.WithStack(err)
 	}
 
@@ -273,7 +273,7 @@ func (b *VolumeSnapshotter) createSnapshot(snapshotName, volumeID, volumeAZ stri
 
 	_, err = b.gce.Disks.CreateSnapshot(b.snapshotProject, volumeAZ, volumeID, &gceSnap).Do()
 	if err != nil {
-		b.log.Debug("Line 276")
+		fmt.Print("Line 276")
 		return "", errors.WithStack(err)
 	}
 
@@ -283,7 +283,7 @@ func (b *VolumeSnapshotter) createSnapshot(snapshotName, volumeID, volumeAZ stri
 func (b *VolumeSnapshotter) createRegionSnapshot(snapshotName, volumeID, volumeRegion string, tags map[string]string) (string, error) {
 	disk, err := b.gce.RegionDisks.Get(b.volumeProject, volumeRegion, volumeID).Do()
 	if err != nil {
-		b.log.Debug("Line 271")
+		fmt.Print("Line 271")
 		return "", errors.WithStack(err)
 	}
 
@@ -293,13 +293,13 @@ func (b *VolumeSnapshotter) createRegionSnapshot(snapshotName, volumeID, volumeR
 	}
 
 	if b.snapshotLocation != "" {
-		b.log.Debug("Line 281")
+		fmt.Print("Line 281")
 		gceSnap.StorageLocations = []string{b.snapshotLocation}
 	}
 
 	_, err = b.gce.RegionDisks.CreateSnapshot(b.snapshotProject, volumeRegion, volumeID, &gceSnap).Do()
 	if err != nil {
-		b.log.Debug("Line 287")
+		fmt.Print("Line 287")
 		return "", errors.WithStack(err)
 	}
 
@@ -357,7 +357,7 @@ func (b *VolumeSnapshotter) DeleteSnapshot(snapshotID string) error {
 	if err != nil {
 		gcpErr, ok := err.(*googleapi.Error)
 		if ok {
-			b.log.Debug("Line 341")
+			fmt.Print("Line 341")
 			b.log.Error(gcpErr.Code)
 			b.log.Error(gcpErr.Message)
 			b.log.Error(gcpErr.Body)
@@ -390,7 +390,7 @@ func (b *VolumeSnapshotter) GetVolumeID(unstructuredPV runtime.Unstructured) (st
 
 	if pv.Spec.GCEPersistentDisk != nil {
 		if pv.Spec.GCEPersistentDisk.PDName == "" {
-			b.log.Debugf("Line 373")
+			fmt.Printf("Line 373")
 			return "", errors.New("spec.gcePersistentDisk.pdName not found")
 		}
 		return pv.Spec.GCEPersistentDisk.PDName, nil
@@ -426,7 +426,7 @@ func (b *VolumeSnapshotter) SetVolumeID(unstructuredPV runtime.Unstructured, vol
 	}
 	res, err := runtime.DefaultUnstructuredConverter.ToUnstructured(pv)
 	if err != nil {
-		b.log.Debug("Line 408")
+		fmt.Print("Line 408")
 		return nil, errors.WithStack(err)
 	}
 

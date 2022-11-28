@@ -17,14 +17,12 @@ limitations under the License.
 package main
 
 import (
-	"fmt"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	veleroplugin "github.com/vmware-tanzu/velero/pkg/plugin/framework"
 )
 
 func main() {
-	fmt.Printf("%s", "Inside main")
 	veleroplugin.NewServer().
 		BindFlags(pflag.CommandLine).
 		RegisterObjectStore("velero.io/gcp", newGCPObjectStore).
