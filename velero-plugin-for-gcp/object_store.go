@@ -19,7 +19,6 @@ package main
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"time"
@@ -79,7 +78,7 @@ func newObjectStore(logger logrus.FieldLogger) *ObjectStore {
 
 func (o *ObjectStore) Init(config map[string]string) error {
 	if err := veleroplugin.ValidateObjectStoreConfigKeys(config, kmsKeyNameConfigKey, serviceAccountConfig, credentialsFileConfigKey); err != nil {
-		fmt.Print("object_store: Line 81")
+		o.log.Error("object_store: Line 81")
 		return err
 	}
 	// Find default token source to extract the GoogleAccessID
@@ -97,7 +96,7 @@ func (o *ObjectStore) Init(config map[string]string) error {
 	if credentialsFile, ok := config[credentialsFileConfigKey]; ok {
 		b, err := ioutil.ReadFile(credentialsFile)
 		if err != nil {
-			fmt.Print("object_store: Line 99")
+			o.log.Error("object_store: Line 99")
 			return errors.Wrapf(err, "error reading provided credentials file %v", credentialsFile)
 		}
 
@@ -112,7 +111,7 @@ func (o *ObjectStore) Init(config map[string]string) error {
 	}
 
 	if err != nil {
-		fmt.Print("object_store: Line 114")
+		o.log.Error("object_store: Line 114")
 		return errors.WithStack(err)
 	}
 
@@ -125,13 +124,13 @@ func (o *ObjectStore) Init(config map[string]string) error {
 	}
 
 	if err != nil {
-		fmt.Print("object_store: Line 127")
+		o.log.Error("object_store: Line 127")
 		return errors.WithStack(err)
 	}
 
 	client, err := storage.NewClient(ctx, clientOptions...)
 	if err != nil {
-		fmt.Print("object_store: Line 133")
+		o.log.Error("object_store: Line 133")
 		return errors.WithStack(err)
 	}
 	o.client = client
@@ -146,7 +145,7 @@ func (o *ObjectStore) Init(config map[string]string) error {
 func (o *ObjectStore) initFromKeyFile(creds *google.Credentials) error {
 	jwtConfig, err := google.JWTConfigFromJSON(creds.JSON)
 	if err != nil {
-		fmt.Print("object_store: Line 148")
+		o.log.Error("object_store: Line 148")
 		return errors.Wrap(err, "error parsing credentials file; should be JSON")
 	}
 	if jwtConfig.Email == "" {
@@ -202,7 +201,7 @@ func (o *ObjectStore) ObjectExists(bucket, key string) (bool, error) {
 func (o *ObjectStore) GetObject(bucket, key string) (io.ReadCloser, error) {
 	r, err := o.client.Bucket(bucket).Object(key).NewReader(context.Background())
 	if err != nil {
-		fmt.Print("object_store: Line 204")
+		o.log.Error("object_store: Line 204")
 		return nil, errors.WithStack(err)
 	}
 
@@ -221,7 +220,7 @@ func (o *ObjectStore) ListCommonPrefixes(bucket, prefix, delimiter string) ([]st
 	for {
 		obj, err := iter.Next()
 		if err != nil && err != iterator.Done {
-			fmt.Print("object_store: Line 223")
+			o.log.Error("object_store: Line 223")
 			return nil, errors.WithStack(err)
 		}
 		if err == iterator.Done {
@@ -251,7 +250,7 @@ func (o *ObjectStore) ListObjects(bucket, prefix string) ([]string, error) {
 			return res, nil
 		}
 		if err != nil {
-			fmt.Print("object_store: Line 253")
+			o.log.Error("object_store: Line 253")
 			return nil, errors.WithStack(err)
 		}
 
@@ -274,21 +273,21 @@ func (o *ObjectStore) SignBytes(bytes []byte) ([]byte, error) {
 	}).Context(context.Background()).Do()
 
 	if err != nil {
-		fmt.Print("object_store: Line 276")
+		o.log.Error("object_store: Line 276")
 		return nil, err
 	}
 	return base64.StdEncoding.DecodeString(resp.SignedBlob)
 }
 
 func (o *ObjectStore) CreateSignedURL(bucket, key string, ttl time.Duration) (string, error) {
-	fmt.Print("object_store: Inside CreateSignedURL")
+	o.log.Error("object_store: Inside CreateSignedURL")
 	options := storage.SignedURLOptions{
 		GoogleAccessID: o.googleAccessID,
 		Method:         "GET",
 		Expires:        time.Now().Add(ttl),
 	}
 
-	fmt.Print("object_store: still inside CreateSignedURL")
+	o.log.Error("object_store: still inside CreateSignedURL")
 
 	if o.privateKey == nil {
 		options.SignBytes = o.SignBytes
@@ -296,7 +295,7 @@ func (o *ObjectStore) CreateSignedURL(bucket, key string, ttl time.Duration) (st
 		options.PrivateKey = o.privateKey
 	}
 
-	fmt.Print("object_store: and still inside CreateSignedURL")
+	o.log.Error("object_store: and still inside CreateSignedURL")
 
 	return storage.SignedURL(bucket, key, &options)
 }
